@@ -24,6 +24,9 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <!-- カスタム設定 -->
     <script type="module" src="src/custom/app-config.js"></script>
     <style>
@@ -184,14 +187,14 @@
         
         @keyframes correctAnswer {
             0% { transform: scale(1); }
-            50% { transform: scale(1.1); background: #40e070; }
+            50% { transform: scale(1.08); background: #40e070; }
             100% { transform: scale(1.02); }
         }
         
         @keyframes incorrectAnswer {
             0% { transform: scale(1); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+            25% { transform: translateX(-3px); }
+            75% { transform: translateX(3px); }
             100% { transform: translateX(0); }
         }
         .brush-tools {
@@ -399,6 +402,22 @@
                         <button id="startBtn" onclick="startQuiz()" style="background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 8px; margin: 5px; font-size: 16px; cursor: pointer;">🚀 クイズ開始</button>
                         <button id="nextBtn" onclick="nextQuestion()" style="background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 8px; margin: 5px; font-size: 16px; cursor: pointer; display: none;">➡️ 次の問題</button>
                         <button id="restartBtn" onclick="restartQuiz()" style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 8px; margin: 5px; font-size: 16px; cursor: pointer; display: none;">🔄 もう一度</button>
+                        <button id="showGraphBtn" onclick="showGraph()" style="background: #17a2b8; color: white; border: none; padding: 12px 24px; border-radius: 8px; margin: 5px; font-size: 16px; cursor: pointer; display: none;">📊 成績グラフ</button>
+                    </div>
+                </div>
+                
+                <!-- 成績グラフパネル -->
+                <div class="graph-panel section-panel panel-M hidden" data-grid="B10">
+                    <span class="panel-number">[2.2-M]</span>
+                    <h3 style="margin-top: 0; margin-bottom: 8px;">📊 成績グラフ</h3>
+                    
+                    <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 15px;">
+                        <canvas id="scoreChart" width="400" height="200"></canvas>
+                    </div>
+                    
+                    <div class="graph-controls" style="text-align: center;">
+                        <button onclick="hideGraph()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 5px; margin: 5px;">❌ グラフを閉じる</button>
+                        <button onclick="clearHistory()" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 5px; margin: 5px;">🗑️ 履歴削除</button>
                     </div>
                 </div>
             </div>
@@ -774,8 +793,9 @@
         let selectedAnswer = null;
         let isAnswered = false;
         
-        // クイズデータ（サンプル）
-        const quizData = [
+        // 拡張クイズデータ（全30問）
+        const allQuizData = [
+            // プログラミング基礎
             {
                 question: "JavaScriptで変数を宣言するキーワードはどれですか？",
                 choices: ["var", "int", "string", "function"],
@@ -805,17 +825,188 @@
                 choices: ["System", "Secure", "Server", "Simple"],
                 correct: 1,
                 explanation: "HTTPSのSはSecure（セキュア）の略で、暗号化された通信を意味します。"
+            },
+            // JavaScript関連
+            {
+                question: "JavaScriptでオブジェクトを作成する記法はどれですか？",
+                choices: ["{}", "[]", "()", "''"],
+                correct: 0,
+                explanation: "{}（波括弧）を使ってオブジェクトリテラルを作成します。"
+            },
+            {
+                question: "配列の要素数を取得するプロパティはどれですか？",
+                choices: ["size", "length", "count", "total"],
+                correct: 1,
+                explanation: "lengthプロパティで配列の要素数を取得できます。"
+            },
+            {
+                question: "文字列を数値に変換する関数はどれですか？",
+                choices: ["parseInt()", "toString()", "valueOf()", "concat()"],
+                correct: 0,
+                explanation: "parseInt()で文字列を整数に変換します。"
+            },
+            {
+                question: "undefinedとnullの違いは？",
+                choices: ["同じ", "undefinedは未定義、nullは空値", "nullは未定義、undefinedは空値", "両方とも0"],
+                correct: 1,
+                explanation: "undefinedは変数が定義されていない状態、nullは意図的に空値を設定した状態です。"
+            },
+            {
+                question: "関数を定義する方法として正しいのはどれですか？",
+                choices: ["function myFunc() {}", "def myFunc() {}", "func myFunc() {}", "method myFunc() {}"],
+                correct: 0,
+                explanation: "JavaScriptでは function キーワードで関数を定義します。"
+            },
+            // HTML関連
+            {
+                question: "HTMLのリンクタグはどれですか？",
+                choices: ["<link>", "<a>", "<href>", "<url>"],
+                correct: 1,
+                explanation: "<a>タグでハイパーリンクを作成します。"
+            },
+            {
+                question: "HTMLで画像を表示するタグはどれですか？",
+                choices: ["<picture>", "<image>", "<img>", "<photo>"],
+                correct: 2,
+                explanation: "<img>タグで画像を表示します。"
+            },
+            {
+                question: "HTMLの見出しタグで最も大きいのはどれですか？",
+                choices: ["<h6>", "<h1>", "<h3>", "<header>"],
+                correct: 1,
+                explanation: "<h1>が最も大きな見出しタグです。"
+            },
+            {
+                question: "HTMLでリストを作成するタグはどれですか？",
+                choices: ["<list>", "<ul>", "<items>", "<menu>"],
+                correct: 1,
+                explanation: "<ul>（順序なしリスト）や<ol>（順序ありリスト）でリストを作成します。"
+            },
+            {
+                question: "HTMLのフォームタグはどれですか？",
+                choices: ["<input>", "<form>", "<field>", "<submit>"],
+                correct: 1,
+                explanation: "<form>タグでフォームを作成します。"
+            },
+            // CSS関連
+            {
+                question: "CSSでフォントサイズを指定するプロパティはどれですか？",
+                choices: ["text-size", "font-size", "size", "font-weight"],
+                correct: 1,
+                explanation: "font-sizeでフォントサイズを指定します。"
+            },
+            {
+                question: "CSSで要素を中央揃えにする方法はどれですか？",
+                choices: ["text-align: center", "margin: auto", "center: true", "position: center"],
+                correct: 0,
+                explanation: "text-align: center でテキストを中央揃えにします。"
+            },
+            {
+                question: "CSSでボーダーを設定するプロパティはどれですか？",
+                choices: ["border", "outline", "frame", "edge"],
+                correct: 0,
+                explanation: "borderプロパティで境界線を設定します。"
+            },
+            {
+                question: "CSSで要素を非表示にするプロパティはどれですか？",
+                choices: ["visibility: hidden", "display: none", "opacity: 0", "全て正解"],
+                correct: 3,
+                explanation: "visibility、display、opacityはそれぞれ異なる方法で要素を非表示にできます。"
+            },
+            {
+                question: "CSSでFlexboxを使用するプロパティはどれですか？",
+                choices: ["display: flex", "layout: flex", "flex: true", "flexbox: on"],
+                correct: 0,
+                explanation: "display: flex でFlexboxレイアウトを有効にします。"
+            },
+            // Web開発一般
+            {
+                question: "APIとは何の略ですか？",
+                choices: ["Application Programming Interface", "Advanced Programming Interface", "Automatic Programming Interface", "Application Process Interface"],
+                correct: 0,
+                explanation: "APIはApplication Programming Interfaceの略です。"
+            },
+            {
+                question: "JSONとは何の略ですか？",
+                choices: ["Java Script Object Notation", "JavaScript Object Notation", "Java Simple Object Notation", "JavaScript Online Notation"],
+                correct: 1,
+                explanation: "JSONはJavaScript Object Notationの略です。"
+            },
+            {
+                question: "HTTPステータスコード200は何を意味しますか？",
+                choices: ["エラー", "成功", "リダイレクト", "認証エラー"],
+                correct: 1,
+                explanation: "200は「OK」を意味し、リクエストが成功したことを示します。"
+            },
+            {
+                question: "CSSフレームワークとして有名なのはどれですか？",
+                choices: ["Bootstrap", "jQuery", "React", "Node.js"],
+                correct: 0,
+                explanation: "BootstrapはCSSフレームワークの代表例です。"
+            },
+            {
+                question: "Node.jsとは何ですか？",
+                choices: ["ブラウザ", "JavaScriptランタイム", "データベース", "CSSフレームワーク"],
+                correct: 1,
+                explanation: "Node.jsはサーバーサイドJavaScriptランタイム環境です。"
+            },
+            // データベース・その他
+            {
+                question: "SQLでデータを取得するコマンドはどれですか？",
+                choices: ["SELECT", "GET", "FETCH", "RETRIEVE"],
+                correct: 0,
+                explanation: "SELECTでデータベースからデータを取得します。"
+            },
+            {
+                question: "GitHubとは何ですか？",
+                choices: ["エディタ", "バージョン管理システム", "Gitホスティングサービス", "プログラミング言語"],
+                correct: 2,
+                explanation: "GitHubはGitを使ったソースコードホスティングサービスです。"
+            },
+            {
+                question: "レスポンシブデザインとは何ですか？",
+                choices: ["高速なデザイン", "画面サイズに応じて適応するデザイン", "アニメーション付きデザイン", "シンプルなデザイン"],
+                correct: 1,
+                explanation: "レスポンシブデザインはデバイスの画面サイズに応じて表示を調整するデザイン手法です。"
+            },
+            {
+                question: "フロントエンドとバックエンドの違いは？",
+                choices: ["速度の違い", "ユーザー側とサーバー側の違い", "言語の違い", "難易度の違い"],
+                correct: 1,
+                explanation: "フロントエンドはユーザー側、バックエンドはサーバー側の処理を担当します。"
+            },
+            {
+                question: "CDNとは何の略ですか？",
+                choices: ["Content Delivery Network", "Code Development Network", "Computer Data Network", "Central Distribution Network"],
+                correct: 0,
+                explanation: "CDNはContent Delivery Network（コンテンツ配信ネットワーク）の略です。"
             }
         ];
+        
+        // ランダム化されたクイズデータ（10問）
+        let quizData = [];
+        
+        // グローバル変数
+        let quizHistory = [];
+        let currentChart = null;
+        
+        // クイズデータをランダム化する関数
+        function shuffleQuizData() {
+            const shuffled = [...allQuizData].sort(() => Math.random() - 0.5);
+            quizData = shuffled.slice(0, 10); // 10問選択
+            log(`🎲 30問から10問をランダム選択しました`);
+        }
         
         // クイズ機能初期化
         function initQuiz() {
             updateScore();
+            loadQuizHistory();
             log('🧠 4択クイズシステム初期化完了');
         }
         
         // クイズ開始
         window.startQuiz = () => {
+            shuffleQuizData(); // 毎回ランダム化
             currentQuestionIndex = 0;
             score = 0;
             updateScore();
@@ -823,8 +1014,9 @@
             
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('restartBtn').style.display = 'none';
+            document.getElementById('showGraphBtn').style.display = 'none';
             
-            log('🚀 クイズを開始しました');
+            log('🚀 クイズを開始しました（ランダム10問）');
         };
         
         // 質問表示
@@ -889,7 +1081,11 @@
             }
             
             updateScore();
-            document.getElementById('nextBtn').style.display = 'inline-block';
+            
+            // テンポアップ：1.2秒後に自動で次の問題へ
+            setTimeout(() => {
+                nextQuestion();
+            }, 1200);
         };
         
         // 次の問題
@@ -933,6 +1129,10 @@
             
             document.getElementById('nextBtn').style.display = 'none';
             document.getElementById('restartBtn').style.display = 'inline-block';
+            document.getElementById('showGraphBtn').style.display = 'inline-block';
+            
+            // Firebase に記録を保存
+            saveQuizResult(score, quizData.length, percentage);
             
             log(`🎯 クイズ終了！ ${score}/${quizData.length}問正解 (${percentage}%)`);
         }
@@ -961,6 +1161,178 @@
             document.getElementById('score').textContent = score;
             document.getElementById('totalQuestions').textContent = quizData.length;
         }
+        
+        // クイズ結果をFirebaseに保存
+        async function saveQuizResult(correctAnswers, totalQuestions, percentage) {
+            if (!currentUser) {
+                log('❌ ログインが必要です');
+                return;
+            }
+            
+            try {
+                const quizResult = {
+                    score: correctAnswers,
+                    total: totalQuestions,
+                    percentage: percentage,
+                    date: new Date().toLocaleDateString(),
+                    time: new Date().toLocaleTimeString(),
+                    userEmail: currentUser.email,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    createdAt: new Date().toISOString()
+                };
+                
+                const userRef = database.ref(`users/${currentUser.uid}/quiz_results`);
+                await userRef.push(quizResult);
+                
+                log(`📊 クイズ結果を保存しました: ${correctAnswers}/${totalQuestions} (${percentage}%)`);
+                
+                // 履歴を再読み込み
+                loadQuizHistory();
+            } catch (error) {
+                log(`❌ 結果保存エラー: ${error.message}`);
+            }
+        }
+        
+        // クイズ履歴を読み込み
+        function loadQuizHistory() {
+            if (!currentUser) return;
+            
+            const userRef = database.ref(`users/${currentUser.uid}/quiz_results`);
+            userRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                
+                if (data) {
+                    quizHistory = Object.entries(data)
+                        .map(([key, value]) => ({ id: key, ...value }))
+                        .sort((a, b) => new Date(a.createdAt || a.date) - new Date(b.createdAt || b.date));
+                    
+                    log(`📈 クイズ履歴読み込み完了: ${quizHistory.length}件`);
+                } else {
+                    quizHistory = [];
+                    log('📈 クイズ履歴: データなし');
+                }
+            });
+        }
+        
+        // グラフ表示
+        window.showGraph = () => {
+            if (quizHistory.length === 0) {
+                log('❌ 表示するデータがありません');
+                return;
+            }
+            
+            document.querySelector('.graph-panel').classList.remove('hidden');
+            
+            // グラフデータを準備
+            const labels = quizHistory.slice(-10).map((result, index) => `${index + 1}回目`);
+            const percentageData = quizHistory.slice(-10).map(result => result.percentage);
+            const scoreData = quizHistory.slice(-10).map(result => `${result.score}/${result.total}`);
+            
+            // 既存のグラフを削除
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            // Chart.jsでグラフを作成
+            const ctx = document.getElementById('scoreChart').getContext('2d');
+            currentChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '正答率 (%)',
+                        data: percentageData,
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#007bff',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'クイズ成績推移',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        }
+                    },
+                    elements: {
+                        point: {
+                            hoverRadius: 8
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+            
+            log(`📊 成績グラフを表示しました（過去${Math.min(quizHistory.length, 10)}回分）`);
+        };
+        
+        // グラフを隠す
+        window.hideGraph = () => {
+            document.querySelector('.graph-panel').classList.add('hidden');
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+        };
+        
+        // 履歴削除
+        window.clearHistory = async () => {
+            if (!currentUser) {
+                log('❌ ログインが必要です');
+                return;
+            }
+            
+            if (!confirm('クイズ履歴をすべて削除しますか？')) {
+                return;
+            }
+            
+            try {
+                const userRef = database.ref(`users/${currentUser.uid}/quiz_results`);
+                await userRef.remove();
+                quizHistory = [];
+                hideGraph();
+                log('🗑️ クイズ履歴を削除しました');
+            } catch (error) {
+                log(`❌ 履歴削除エラー: ${error.message}`);
+            }
+        };
         
         // 描画開始
         function startDrawing(e) {
