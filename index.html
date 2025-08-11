@@ -179,7 +179,59 @@
             margin: 10px 0;
         }
         #paintCanvas {
-            box-shadow: 0 0 30px rgba(255, 0, 128, 0.3);
+            box-shadow: 0 0 30px rgba(255, 0, 128, 0.3),
+                        inset 0 0 20px rgba(0, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        #paintCanvas:hover {
+            box-shadow: 0 0 50px rgba(255, 0, 128, 0.6),
+                        0 0 30px rgba(0, 255, 255, 0.4),
+                        inset 0 0 30px rgba(255, 255, 255, 0.1);
+            transform: scale(1.02);
+        }
+        
+        /* 超かっこいいボタンスタイル */
+        .tool-btn {
+            background: linear-gradient(45deg, #ff0080, #8000ff, #0080ff, #00ff80) !important;
+            background-size: 400% 400% !important;
+            animation: gradientShift 3s ease infinite !important;
+            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            color: white !important;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8) !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+        .tool-btn::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transform: rotate(45deg);
+            transition: all 0.6s;
+            opacity: 0;
+        }
+        .tool-btn:hover::before {
+            animation: shine 1s ease-in-out;
+        }
+        .tool-btn.active {
+            background: linear-gradient(45deg, #ff4080, #ff0080, #ff8040) !important;
+            box-shadow: 0 0 25px rgba(255, 0, 128, 0.8) !important;
+            transform: scale(1.1) !important;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes shine {
+            0% { opacity: 0; transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            50% { opacity: 1; }
+            100% { opacity: 0; transform: translateX(100%) translateY(100%) rotate(45deg); }
         }
         
         @media (max-width: 768px) {
@@ -329,9 +381,13 @@
                 <!-- キャンバス -->
                 <div class="canvas-container section-panel panel-M" data-grid="B8">
                     <span class="panel-number">[2.2-M]</span>
-                    <div style="text-align: center; background: #000011; padding: 10px; border-radius: 10px;">
+                    <div style="text-align: center; background: linear-gradient(135deg, #000011, #001122, #000033); padding: 15px; border-radius: 15px; box-shadow: inset 0 0 20px rgba(255, 0, 128, 0.2);">
                         <canvas id="paintCanvas" width="600" height="400" 
-                            style="border: 2px solid #ff0080; border-radius: 8px; background: #000022; cursor: crosshair;">
+                            style="border: 3px solid transparent; border-radius: 12px; 
+                                   background: linear-gradient(45deg, #000022, #001133, #000044); 
+                                   cursor: crosshair;
+                                   background-clip: padding-box;
+                                   box-shadow: 0 0 20px rgba(255, 0, 128, 0.4), inset 0 0 10px rgba(0, 255, 255, 0.2);">
                         </canvas>
                     </div>
                     
@@ -838,12 +894,20 @@
             document.getElementById('opacityDisplay').textContent = Math.round(currentOpacity * 100) + '%';
         }
         
-        // 基本ブラシ描画
+        // 基本ブラシ描画（ビジュアル強化）
         function drawBrush(x, y) {
             ctx.globalAlpha = currentOpacity;
             ctx.strokeStyle = currentColor;
             ctx.lineWidth = currentSize;
             ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // メタリック効果追加
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, currentSize);
+            gradient.addColorStop(0, currentColor);
+            gradient.addColorStop(1, currentColor + '80');
+            ctx.strokeStyle = gradient;
+            
             ctx.lineTo(x, y);
             ctx.stroke();
         }
@@ -858,28 +922,55 @@
             ctx.stroke();
         }
         
-        // スプレー描画
+        // スプレー描画（レインボーエフェクト付き）
         function drawSpray(x, y) {
-            ctx.globalAlpha = currentOpacity * 0.6;
-            ctx.fillStyle = currentColor;
+            ctx.globalAlpha = currentOpacity * 0.8;
             
-            for (let i = 0; i < currentSize; i++) {
-                const offsetX = (Math.random() - 0.5) * currentSize * 2;
-                const offsetY = (Math.random() - 0.5) * currentSize * 2;
-                ctx.fillRect(x + offsetX, y + offsetY, 1, 1);
+            for (let i = 0; i < currentSize * 2; i++) {
+                const offsetX = (Math.random() - 0.5) * currentSize * 3;
+                const offsetY = (Math.random() - 0.5) * currentSize * 3;
+                const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+                
+                if (distance < currentSize * 1.5) {
+                    // カラフルなスプレー効果
+                    const hue = (Date.now() / 10 + i * 10) % 360;
+                    const saturation = 70 + Math.random() * 30;
+                    const lightness = 50 + Math.random() * 30;
+                    ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${0.6 + Math.random() * 0.4})`;
+                    
+                    const size = Math.max(1, 3 - distance / currentSize);
+                    ctx.fillRect(x + offsetX, y + offsetY, size, size);
+                }
             }
         }
         
-        // グロー効果
+        // グロー効果（マルチレイヤー強化）
         function drawGlow(x, y) {
-            ctx.globalAlpha = currentOpacity;
+            // 外側の大きなグロー
+            ctx.globalAlpha = currentOpacity * 0.3;
             ctx.shadowColor = currentColor;
-            ctx.shadowBlur = currentSize * 2;
+            ctx.shadowBlur = currentSize * 4;
             ctx.strokeStyle = currentColor;
-            ctx.lineWidth = currentSize;
+            ctx.lineWidth = currentSize * 1.5;
             ctx.lineCap = 'round';
             ctx.lineTo(x, y);
             ctx.stroke();
+            
+            // 中間グロー
+            ctx.globalAlpha = currentOpacity * 0.6;
+            ctx.shadowBlur = currentSize * 2;
+            ctx.lineWidth = currentSize;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            // 内側のコア
+            ctx.globalAlpha = currentOpacity;
+            ctx.shadowBlur = currentSize;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = currentSize * 0.3;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
             ctx.shadowBlur = 0;
         }
         
@@ -905,37 +996,67 @@
             ctx.shadowBlur = 0;
         }
         
-        // パーティクル効果
+        // パーティクル効果（星座エフェクト）
         function drawParticle(x, y) {
-            // パーティクルを追加
-            for (let i = 0; i < 5; i++) {
+            // 多彩なパーティクルを追加
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 * i) / 8 + Math.random() * 0.5;
+                const speed = 2 + Math.random() * 3;
+                const hue = (Date.now() / 50 + i * 45) % 360;
+                
                 particles.push({
-                    x: x + (Math.random() - 0.5) * 20,
-                    y: y + (Math.random() - 0.5) * 20,
-                    vx: (Math.random() - 0.5) * 4,
-                    vy: (Math.random() - 0.5) * 4,
+                    x: x + Math.random() * 10 - 5,
+                    y: y + Math.random() * 10 - 5,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
                     life: 1.0,
-                    color: currentColor,
-                    size: Math.random() * currentSize / 2
+                    color: `hsl(${hue}, 100%, 60%)`,
+                    size: Math.random() * currentSize / 2 + 2,
+                    sparkle: Math.random() > 0.5,
+                    trail: []
                 });
             }
         }
         
-        // パーティクルアニメーション
+        // パーティクルアニメーション（強化版）
         function animateParticles() {
-            // パーティクル更新
             particles.forEach((particle, index) => {
+                // トレイル記録
+                if (particle.trail) {
+                    particle.trail.push({x: particle.x, y: particle.y, life: particle.life});
+                    if (particle.trail.length > 5) particle.trail.shift();
+                }
+                
+                // 物理更新
                 particle.x += particle.vx;
                 particle.y += particle.vy;
-                particle.life -= 0.02;
-                particle.size *= 0.98;
+                particle.vx *= 0.98; // 空気抵抗
+                particle.vy *= 0.98;
+                particle.life -= 0.015;
+                particle.size *= 0.995;
                 
-                if (particle.life <= 0) {
+                if (particle.life <= 0 || particle.size < 0.5) {
                     particles.splice(index, 1);
                 } else {
-                    ctx.globalAlpha = particle.life * currentOpacity;
+                    // トレイル描画
+                    if (particle.trail) {
+                        particle.trail.forEach((point, i) => {
+                            ctx.globalAlpha = point.life * 0.3;
+                            ctx.fillStyle = particle.color;
+                            const trailSize = particle.size * (i / particle.trail.length);
+                            ctx.fillRect(point.x, point.y, trailSize, trailSize);
+                        });
+                    }
+                    
+                    // メイン描画
+                    ctx.globalAlpha = particle.life;
+                    if (particle.sparkle && Math.random() > 0.8) {
+                        ctx.shadowColor = particle.color;
+                        ctx.shadowBlur = particle.size * 2;
+                    }
                     ctx.fillStyle = particle.color;
                     ctx.fillRect(particle.x, particle.y, particle.size, particle.size);
+                    ctx.shadowBlur = 0;
                 }
             });
             
