@@ -310,6 +310,12 @@
         <!-- 統計表示画面 -->
         <div class="score-container" id="statisticsContainer" style="display: none;">
             <h2>📊 クイズ統計</h2>
+            <div style="margin-bottom: 20px; text-align: center;">
+                <button onclick="sortStatistics('id')" style="margin: 5px; background: #17a2b8;">ID順ソート</button>
+                <button onclick="sortStatistics('attempts')" style="margin: 5px; background: #28a745;">挑戦回数順</button>
+                <button onclick="sortStatistics('correct')" style="margin: 5px; background: #ffc107; color: #000;">正解数順</button>
+                <button onclick="sortStatistics('accuracy')" style="margin: 5px; background: #dc3545;">正解率順</button>
+            </div>
             <div id="statisticsContent"></div>
             <div class="buttons">
                 <button onclick="goHome()" style="background: #6c757d;">ホームに戻る</button>
@@ -874,70 +880,94 @@
             log('統計表示を開く');
         }
         
-        // 統計データ集計
+        // 統計データ集計（全ID表示対応）
         function calculateStatistics() {
             const questionStats = {};
             let totalAttempts = allQuizRecords.length;
             let totalCorrect = allQuizRecords.filter(r => r.isCorrect).length;
             
-            // 問題ごとの統計を集計
-            allQuizRecords.forEach(record => {
-                const qId = record.questionId;
-                if (!questionStats[qId]) {
-                    questionStats[qId] = {
-                        questionId: qId,
-                        question: record.question,
-                        attempts: 0,
-                        correct: 0,
-                        incorrect: 0,
-                        accuracy: 0
-                    };
-                }
-                
-                questionStats[qId].attempts++;
-                if (record.isCorrect) {
-                    questionStats[qId].correct++;
-                } else {
-                    questionStats[qId].incorrect++;
-                }
-                
-                questionStats[qId].accuracy = Math.round((questionStats[qId].correct / questionStats[qId].attempts) * 100);
+            // 全問題の初期化（未挑戦問題も含めて）
+            allQuestions.forEach(q => {
+                questionStats[q.id] = {
+                    questionId: q.id,
+                    question: q.question,
+                    attempts: 0,
+                    correct: 0,
+                    incorrect: 0,
+                    accuracy: 0,
+                    status: '未挑戦'
+                };
             });
             
-            // 問題をID順にソート
-            const sortedQuestions = Object.values(questionStats).sort((a, b) => a.questionId.localeCompare(b.questionId));
+            // 実際の記録で更新
+            allQuizRecords.forEach(record => {
+                const qId = record.questionId;
+                if (questionStats[qId]) {
+                    if (questionStats[qId].attempts === 0) {
+                        questionStats[qId].status = '挑戦済';
+                    }
+                    
+                    questionStats[qId].attempts++;
+                    if (record.isCorrect) {
+                        questionStats[qId].correct++;
+                    } else {
+                        questionStats[qId].incorrect++;
+                    }
+                    
+                    questionStats[qId].accuracy = Math.round((questionStats[qId].correct / questionStats[qId].attempts) * 100);
+                }
+            });
+            
+            // 全問題を含めた結果（デフォルトはID順）
+            const allQuestionStats = Object.values(questionStats).sort((a, b) => a.questionId.localeCompare(b.questionId));
             
             return {
                 totalAttempts,
                 totalCorrect,
                 totalIncorrect: totalAttempts - totalCorrect,
-                overallAccuracy: Math.round((totalCorrect / totalAttempts) * 100),
-                questionStats: sortedQuestions,
-                totalUniqueQuestions: sortedQuestions.length,
+                overallAccuracy: totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0,
+                questionStats: allQuestionStats,
+                totalUniqueQuestions: allQuestionStats.filter(q => q.attempts > 0).length,
+                totalQuestions: allQuestionStats.length,
                 sessionsCount: new Set(allQuizRecords.map(r => r.sessionId)).size
             };
         }
         
-        // 統計データ表示
+        // 統計データ表示（全ID対応）
         function displayStatistics(stats) {
             const content = document.getElementById('statisticsContent');
             
             let html = `
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
                     <h3>📊 全体統計</h3>
-                    <p><strong>総挑戦回数:</strong> ${stats.totalAttempts}回</p>
-                    <p><strong>正解数:</strong> ${stats.totalCorrect}回</p>
-                    <p><strong>不正解数:</strong> ${stats.totalIncorrect}回</p>
-                    <p><strong>全体正解率:</strong> <span class="${getAccuracyClass(stats.overallAccuracy)}">${stats.overallAccuracy}%</span></p>
-                    <p><strong>挑戦した問題数:</strong> ${stats.totalUniqueQuestions}/30問</p>
-                    <p><strong>セッション数:</strong> ${stats.sessionsCount}回</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <p><strong>総挑戦回数:</strong> ${stats.totalAttempts}回</p>
+                            <p><strong>正解数:</strong> ${stats.totalCorrect}回</p>
+                            <p><strong>不正解数:</strong> ${stats.totalIncorrect}回</p>
+                        </div>
+                        <div>
+                            <p><strong>全体正解率:</strong> <span class="${getAccuracyClass(stats.overallAccuracy)}">${stats.overallAccuracy}%</span></p>
+                            <p><strong>挑戦済み問題:</strong> ${stats.totalUniqueQuestions}/${stats.totalQuestions}問</p>
+                            <p><strong>セッション数:</strong> ${stats.sessionsCount}回</p>
+                        </div>
+                    </div>
                 </div>
                 
-                <h3>📋 1問ごとの統計</h3>
-                <table class="statistics-table">
+                <h3>📋 全問題統計一覧（Q001-Q030）</h3>
+                <div style="margin-bottom: 15px; padding: 10px; background: #e9ecef; border-radius: 5px;">
+                    <strong>📊 並び替え:</strong>
+                    <button onclick="sortStatistics('id')" style="margin: 0 5px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">ID順</button>
+                    <button onclick="sortStatistics('attempts')" style="margin: 0 5px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">挑戦回数順</button>
+                    <button onclick="sortStatistics('correct')" style="margin: 0 5px; padding: 5px 10px; background: #fd7e14; color: white; border: none; border-radius: 3px; cursor: pointer;">正解数順</button>
+                    <button onclick="sortStatistics('accuracy')" style="margin: 0 5px; padding: 5px 10px; background: #6f42c1; color: white; border: none; border-radius: 3px; cursor: pointer;">正解率順</button>
+                    <span id="sortIndicator" style="margin-left: 10px; font-size: 0.9em; color: #6c757d;"></span>
+                </div>
+                <table class="statistics-table" id="statisticsTable">
                     <thead>
                         <tr>
                             <th>問題ID</th>
+                            <th>状態</th>
                             <th>問題文</th>
                             <th>挑戦回数</th>
                             <th>正解回数</th>
@@ -945,18 +975,23 @@
                             <th>正解率</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="statisticsTableBody">
             `;
             
             stats.questionStats.forEach(q => {
+                const statusColor = q.status === '未挑戦' ? '#6c757d' : '#28a745';
+                const accuracyDisplay = q.attempts === 0 ? '-' : `${q.accuracy}%`;
+                const accuracyClass = q.attempts === 0 ? '' : getAccuracyClass(q.accuracy);
+                
                 html += `
                     <tr>
                         <td><strong>${q.questionId}</strong></td>
-                        <td style="max-width: 300px; word-wrap: break-word;">${q.question}</td>
+                        <td><span style="color: ${statusColor}; font-weight: bold;">${q.status}</span></td>
+                        <td style="max-width: 250px; word-wrap: break-word; font-size: 0.9em;">${q.question}</td>
                         <td>${q.attempts}回</td>
                         <td>${q.correct}回</td>
                         <td>${q.incorrect}回</td>
-                        <td><span class="${getAccuracyClass(q.accuracy)}">${q.accuracy}%</span></td>
+                        <td><span class="${accuracyClass}">${accuracyDisplay}</span></td>
                     </tr>
                 `;
             });
@@ -964,6 +999,9 @@
             html += `
                     </tbody>
                 </table>
+                <div style="margin-top: 15px; color: #6c757d; font-size: 0.9em;">
+                    <p>📊 総問題数: ${stats.totalQuestions}問 | 挑戦済み: ${stats.totalUniqueQuestions}問 | 未挑戦: ${stats.totalQuestions - stats.totalUniqueQuestions}問</p>
+                </div>
             `;
             
             content.innerHTML = html;
@@ -974,6 +1012,60 @@
             if (accuracy >= 80) return 'accuracy-high';
             if (accuracy >= 50) return 'accuracy-medium';
             return 'accuracy-low';
+        }
+        
+        // 統計ソート機能
+        let currentSortBy = 'id';
+        let currentSortOrder = 'asc';
+        
+        function sortStatistics(sortBy) {
+            // 同じソート基準の場合は昇降順を切り替え
+            if (currentSortBy === sortBy) {
+                currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortBy = sortBy;
+                currentSortOrder = 'asc';
+            }
+            
+            const stats = calculateStatistics();
+            
+            // ソート実行
+            stats.questionStats.sort((a, b) => {
+                let valueA, valueB;
+                
+                switch(sortBy) {
+                    case 'id':
+                        valueA = a.questionId;
+                        valueB = b.questionId;
+                        break;
+                    case 'attempts':
+                        valueA = a.attempts;
+                        valueB = b.attempts;
+                        break;
+                    case 'correct':
+                        valueA = a.correct;
+                        valueB = b.correct;
+                        break;
+                    case 'accuracy':
+                        valueA = a.accuracy;
+                        valueB = b.accuracy;
+                        break;
+                    default:
+                        valueA = a.questionId;
+                        valueB = b.questionId;
+                }
+                
+                if (typeof valueA === 'string') {
+                    const comparison = valueA.localeCompare(valueB);
+                    return currentSortOrder === 'asc' ? comparison : -comparison;
+                } else {
+                    const comparison = valueA - valueB;
+                    return currentSortOrder === 'asc' ? comparison : -comparison;
+                }
+            });
+            
+            displayStatistics(stats);
+            log(`統計を${sortBy}で${currentSortOrder === 'asc' ? '昇順' : '降順'}ソート`);
         }
         
         // 統計データエクスポート
@@ -1009,6 +1101,77 @@
             document.getElementById('versionDisplay').textContent = `v${newVersion}`;
             log(`バージョン更新: v${APP_VERSION} → v${newVersion}`);
             return newVersion;
+        }
+        
+        // ソート機能の実装
+        let currentSortBy = 'id';
+        let sortAscending = true;
+        
+        function sortStatistics(sortBy) {
+            // 同じソート項目の場合は昇順/降順を切り替え
+            if (currentSortBy === sortBy) {
+                sortAscending = !sortAscending;
+            } else {
+                currentSortBy = sortBy;
+                sortAscending = true;
+            }
+            
+            // 現在の統計データを再計算
+            const stats = calculateStatistics();
+            
+            // ソート実行
+            stats.questionStats.sort((a, b) => {
+                let valueA, valueB;
+                
+                switch(sortBy) {
+                    case 'id':
+                        valueA = a.questionId;
+                        valueB = b.questionId;
+                        return sortAscending ? 
+                            valueA.localeCompare(valueB) : 
+                            valueB.localeCompare(valueA);
+                    
+                    case 'attempts':
+                        valueA = a.attempts;
+                        valueB = b.attempts;
+                        break;
+                    
+                    case 'correct':
+                        valueA = a.correct;
+                        valueB = b.correct;
+                        break;
+                    
+                    case 'accuracy':
+                        valueA = a.accuracy;
+                        valueB = b.accuracy;
+                        break;
+                    
+                    default:
+                        return 0;
+                }
+                
+                if (sortAscending) {
+                    return valueA - valueB;
+                } else {
+                    return valueB - valueA;
+                }
+            });
+            
+            // 統計表示を更新
+            displayStatistics(stats);
+            
+            // ソート状態の表示を更新
+            const indicator = document.getElementById('sortIndicator');
+            const sortNames = {
+                'id': 'ID順',
+                'attempts': '挑戦回数順', 
+                'correct': '正解数順',
+                'accuracy': '正解率順'
+            };
+            const arrow = sortAscending ? '↑' : '↓';
+            indicator.textContent = `${sortNames[sortBy]} ${arrow}`;
+            
+            log(`統計をソート: ${sortNames[sortBy]} (${sortAscending ? '昇順' : '降順'})`);
         }
         
         // LocalStorageからクイズ記録を読み込み（クロスプラットフォーム対応）
